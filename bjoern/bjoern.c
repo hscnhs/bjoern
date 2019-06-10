@@ -19,16 +19,13 @@ run(PyObject* wsgi_app, int fd, char* host, int port)
 
     info.wsgi_app = wsgi_app;
     info.sockfd = fd;
-    if (info.sockfd < 0) {
-        return NULL;
-    }
 
     if(strlen(host)) {
         info.host = Py_BuildValue("s", host);
         info.port = Py_BuildValue("i", port);
     }
     else  
-      info.host = NULL;
+        info.host = NULL;
 
     _initialize_request_module(&info);
     server_run(&info);
@@ -81,10 +78,11 @@ int makeCSocket(char* sock, char* host, int port) {
             printf("Error in set sockopt\n");
             return -1;
         }
-
+    }
     else {
         //use unix sock mode, sock must like unix:t1.sock
-        ;
+        printf("still working in unix sock mode\n");
+        return -1;
     }
 
     if(listen(fd, 1024) < 0) {
@@ -92,8 +90,7 @@ int makeCSocket(char* sock, char* host, int port) {
         return -1;
     }
 
-    return fd;  
-    }
+    return fd;
 }
 
 PyObject*
@@ -162,13 +159,14 @@ int main(int argc, char** argv) {
     int fd = 0;
 
     PyObject *pApp = NULL;
+    PyObject *pReturn = NULL;
 
     if(argc < 2) {
         printf("Usage: %s wsgi\n", argv[0]);
         return -1;
     }
 
-    //fd = makeCSocket("", "127.0.0.1", 8000);
+    fd = makeCSocket("", "127.0.0.1", 8000);
 
     if(fd < 0) {
         return -1;
@@ -176,11 +174,19 @@ int main(int argc, char** argv) {
     
     Py_Initialize();
     PyRun_SimpleString("import sys;sys.path.append('.')");
-   
+
+    init_bjoern();
+    
+    goto try;
+try:
     pApp = makeApp(argv[1]);
     if(pApp == NULL)
         goto error;
     Py_INCREF(pApp);
+
+    pReturn = run(pApp, fd, "127.0.0.1", 8000);
+    if(PyErr_Occurred())
+        PyErr_Print();
 
     if(Py_FinalizeEx() < 0)
         goto error;
@@ -188,11 +194,13 @@ int main(int argc, char** argv) {
 
 finally:
     Py_DECREF(pApp);
-    //close(fd);
+    Py_DECREF(pReturn);
+    close(fd);
     return 0;
 
 error:
     Py_XDECREF(pApp);
-    //close(fd);
+    Py_XDECREF(pReturn);
+    close(fd);
     return -1;
 }
