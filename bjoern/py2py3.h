@@ -35,23 +35,23 @@
 
 static PyObject* _PEP3333_String_FromLatin1StringAndSize(const char* data, Py_ssize_t len)
 {
-  PyObject* tmp = PyUnicode_DecodeLatin1(data, len, "replace");
-  if (tmp == NULL) {
-    return NULL;
-  }
-  PyObject* tmp2 = PyUnicode_AsLatin1String(tmp);
-  Py_DECREF(tmp);
-  return tmp2;
+    PyObject* tmp = PyUnicode_DecodeLatin1(data, len, "replace");
+    if (tmp == NULL) {
+        return NULL;
+    }
+    PyObject* tmp2 = PyUnicode_AsLatin1String(tmp);
+    Py_DECREF(tmp);
+    return tmp2;
 }
 
-static PyObject *_PEP3333_String_Concat(PyObject *l, PyObject *r)
+static PyObject* _PEP3333_String_Concat(PyObject* l, PyObject* r)
 {
-  PyObject *ret = l;
+    PyObject* ret = l;
 
-  Py_INCREF(l);  /* reference to old left will be stolen */
-  PyString_Concat(&ret, r);
+    Py_INCREF(l);  /* reference to old left will be stolen */
+    PyString_Concat(&ret, r);
 
-  return ret;
+    return ret;
 }
 #endif
 

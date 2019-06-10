@@ -9,41 +9,41 @@
 void _initialize_request_module(ServerInfo* server_info);
 
 typedef struct {
-  unsigned error_code : 2;
-  unsigned parse_finished : 1;
-  unsigned start_response_called : 1;
-  unsigned wsgi_call_done : 1;
-  unsigned keep_alive : 1;
-  unsigned response_length_unknown : 1;
-  unsigned chunked_response : 1;
+    unsigned error_code : 2;
+    unsigned parse_finished : 1;
+    unsigned start_response_called : 1;
+    unsigned wsgi_call_done : 1;
+    unsigned keep_alive : 1;
+    unsigned response_length_unknown : 1;
+    unsigned chunked_response : 1;
 } request_state;
 
 typedef struct {
-  http_parser parser;
-  PyObject* field;
-  int last_call_was_header_value;
-  int invalid_header;
+    http_parser parser;
+    PyObject* field;
+    int last_call_was_header_value;
+    int invalid_header;
 } bj_parser;
 
 typedef struct {
 #ifdef DEBUG
-  unsigned long id;
+    unsigned long id;
 #endif
-  bj_parser parser;
-  ev_io ev_watcher;
+    bj_parser parser;
+    ev_io ev_watcher;
 
-  ServerInfo* server_info;
-  int client_fd;
-  PyObject* client_addr;
+    ServerInfo* server_info;
+    int client_fd;
+    PyObject* client_addr;
 
-  request_state state;
+    request_state state;
 
-  PyObject* status;
-  PyObject* headers;
-  PyObject* current_chunk;
-  Py_ssize_t current_chunk_p;
-  PyObject* iterable;
-  PyObject* iterator;
+    PyObject* status;
+    PyObject* headers;
+    PyObject* current_chunk;
+    Py_ssize_t current_chunk_p;
+    PyObject* iterable;
+    PyObject* iterator;
 } Request;
 
 #define REQUEST_FROM_WATCHER(watcher) \

@@ -5,12 +5,12 @@
 PyTypeObject FileWrapper_Type;
 
 typedef struct {
-  PyObject_HEAD
-  PyObject* file;
-  PyObject *blocksize;
-  int fd;
+    PyObject_HEAD
+    PyObject* file;
+    PyObject* blocksize;
+    int fd;
 } FileWrapper;
 
 void _init_filewrapper(void);
-int FileWrapper_GetFd(PyObject *self);
-void FileWrapper_Done(PyObject *self);
+int FileWrapper_GetFd(PyObject* self);
+void FileWrapper_Done(PyObject* self);
