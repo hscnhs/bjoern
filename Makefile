@@ -1,6 +1,6 @@
 SOURCE_DIR	= bjoern
 BUILD_DIR	= build
-PYTHON	?= python2
+PYTHON	?= python3
 
 PYTHON_INCLUDE	= $(shell ${PYTHON}-config --includes)
 PYTHON_LDFLAGS	= $(shell ${PYTHON}-config --ldflags)
@@ -48,7 +48,7 @@ small: clean
 	CFLAGS='-Os' make
 
 _bjoernmodule:
-	@$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(objects) -o $(BUILD_DIR)/_bjoern.so
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(objects) -o $(BUILD_DIR)/_bjoern.so
 	@PYTHONPATH=$$PYTHONPATH:$(BUILD_DIR) ${PYTHON} -c "import bjoern"
 
 again: clean all
