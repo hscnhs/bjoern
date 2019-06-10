@@ -1,6 +1,6 @@
 SOURCE_DIR	= bjoern
 BUILD_DIR	= build
-PYTHON	?= python2
+PYTHON	?= python
 
 PYTHON_INCLUDE	= $(shell ${PYTHON}-config --includes)
 PYTHON_LDFLAGS	= $(shell ${PYTHON}-config --ldflags)
@@ -33,7 +33,7 @@ ifndef SIGNAL_CHECK_INTERVAL
 FEATURES	+= -D SIGNAL_CHECK_INTERVAL=0.1
 endif
 
-all: prepare-build $(objects) _bjoernmodule
+all: prepare-build $(objects) bjoern
 
 print-env:
 	@echo CFLAGS=$(CFLAGS)
@@ -47,8 +47,8 @@ opt: clean
 small: clean
 	CFLAGS='-Os' make
 
-_bjoernmodule:
-	@$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(objects) -o $(BUILD_DIR)/_bjoern.so
+bjoern:
+	@$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(objects) -o $(BUILD_DIR)/bjoern
 	@PYTHONPATH=$$PYTHONPATH:$(BUILD_DIR) ${PYTHON} -c "import bjoern"
 
 again: clean all
