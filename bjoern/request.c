@@ -75,8 +75,8 @@ void Request_parse(Request* request, const char* data, const size_t data_len)
     assert(data_len);
     size_t nparsed = http_parser_execute((http_parser*)&request->parser,
                                          &parser_settings, data, data_len);
-    if(nparsed != data_len)
-        request->state.error_code = HTTP_BAD_REQUEST;
+    //if(nparsed != data_len)
+        //request->state.error_code = HTTP_BAD_REQUEST;
 }
 
 #define REQUEST ((Request*)parser->data)
@@ -115,22 +115,6 @@ on_message_begin(http_parser* parser)
     return 0;
 }
 
-/* static int
-on_path(http_parser* parser, const char* path, size_t len)
-{
-    if(!(len = unquote_url_inplace((char*)path, len)))
-        return 1;
-    _set_or_append_header(REQUEST->headers, _PATH_INFO, path, len);
-    return 0;
-}
-
-static int
-on_query_string(http_parser* parser, const char* query, size_t len)
-{
-    _set_or_append_header(REQUEST->headers, _QUERY_STRING, query, len);
-    return 0;
-}*/
-
 static int
 on_url(http_parser* parser, const char* url, size_t len) {
     struct http_parser_url u;
@@ -151,6 +135,13 @@ on_url(http_parser* parser, const char* url, size_t len) {
         //printf("query: %s len: %hu\n", data2, u.field_data[UF_QUERY].len);
         _set_or_append_header(REQUEST->headers, _QUERY_STRING, data2, u.field_data[UF_QUERY].len);
     }
+
+    return 0;
+}
+
+static int
+on_status(http_parser* parser, const char* status, size_t len) {
+    printf("status: %s len: %zu\n", status, len);
 
     return 0;
 }
@@ -210,16 +201,24 @@ on_header_value(http_parser* parser, const char* value, size_t len)
 }
 
 static int
+on_header_complete(http_parser* parser) {
+
+    printf("header complete\n");
+    printf("header size: %d\n", PyDict_GET_SIZE(REQUEST->headers));
+    return 0;
+}
+
+static int
 on_body(http_parser* parser, const char* data, const size_t len)
 {
     PyObject* body;
 
     body = PyDict_GetItem(REQUEST->headers, _wsgi_input);
     if (body == NULL) {
-        if(!parser->content_length) {
+        /*if(!parser->content_length) {
             REQUEST->state.error_code = HTTP_LENGTH_REQUIRED;
             return 1;
-        }
+        }*/
         body = PyObject_CallMethodObjArgs(IO_module, _BytesIO, NULL);
         if (body == NULL) {
             return 1;
@@ -230,6 +229,7 @@ on_body(http_parser* parser, const char* data, const size_t len)
     PyObject* tmp = PyObject_CallMethodObjArgs(body, _write, temp_data, NULL);
     Py_DECREF(tmp); /* Never throw away return objects from py-api */
     Py_DECREF(temp_data);
+
     return 0;
 }
 
@@ -288,8 +288,8 @@ PyDict_ReplaceKey(PyObject* dict, PyObject* old_key, PyObject* new_key)
 
 static http_parser_settings
 parser_settings = {
-    on_message_begin, on_url, NULL, on_header_field,
-    on_header_value, NULL, on_body, on_message_complete, NULL, NULL
+    on_message_begin, on_url, on_status, on_header_field,
+    on_header_value, on_header_complete, on_body, on_message_complete, NULL, NULL
 };
 
 void _initialize_request_module(ServerInfo* server_info)
