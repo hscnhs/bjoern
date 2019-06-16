@@ -115,7 +115,7 @@ on_message_begin(http_parser* parser)
     return 0;
 }
 
-static int
+/* static int
 on_path(http_parser* parser, const char* path, size_t len)
 {
     if(!(len = unquote_url_inplace((char*)path, len)))
@@ -128,6 +128,30 @@ static int
 on_query_string(http_parser* parser, const char* query, size_t len)
 {
     _set_or_append_header(REQUEST->headers, _QUERY_STRING, query, len);
+    return 0;
+}*/
+
+static int
+on_url(http_parser* parser, const char* url, size_t len) {
+    struct http_parser_url u;
+
+    int result = http_parser_parse_url(url, len, 0, &u);
+    if (result) {
+        fprintf(stderr, "\n\n*** failed to parse URL %s ***\n\n", url);
+        return -1;
+    }
+    if ((u.field_set & (1 << UF_PATH))) {
+        const char * data1 = url + u.field_data[UF_PATH].off;
+        //printf("path: %s len: %hu\n", data1, u.field_data[UF_PATH].len);
+        _set_or_append_header(REQUEST->headers, _PATH_INFO, data1, u.field_data[UF_PATH].len);  
+    }
+
+    if ((u.field_set & (1 << UF_QUERY))) {
+        const char * data2 = url + u.field_data[UF_QUERY].off;
+        //printf("query: %s len: %hu\n", data2, u.field_data[UF_QUERY].len);
+        _set_or_append_header(REQUEST->headers, _QUERY_STRING, data2, u.field_data[UF_QUERY].len);
+    }
+
     return 0;
 }
 
@@ -264,8 +288,8 @@ PyDict_ReplaceKey(PyObject* dict, PyObject* old_key, PyObject* new_key)
 
 static http_parser_settings
 parser_settings = {
-    on_message_begin, on_path, on_query_string, NULL, NULL, on_header_field,
-    on_header_value, NULL, on_body, on_message_complete
+    on_message_begin, on_url, NULL, on_header_field,
+    on_header_value, NULL, on_body, on_message_complete, NULL, NULL
 };
 
 void _initialize_request_module(ServerInfo* server_info)
@@ -297,7 +321,7 @@ void _initialize_request_module(ServerInfo* server_info)
         PyDict_SetItemString(
             wsgi_base_dict,
             "wsgi.version",
-            PyTuple_Pack(2, _FromLong(1), _FromLong(0))
+            PyTuple_Pack(2, _FromLong(2), _FromLong(0))
         );
 
         /* dct['wsgi.url_scheme'] = 'http'
