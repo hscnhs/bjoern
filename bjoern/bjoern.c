@@ -12,8 +12,7 @@
 #include "wsgi.h"
 #include "filewrapper.h"
 
-static PyObject*
-run(PyObject* wsgi_app, int fd, char* host, int port)
+void run(PyObject* wsgi_app, int fd, char* host, int port)
 {
     ServerInfo info;
 
@@ -29,8 +28,6 @@ run(PyObject* wsgi_app, int fd, char* host, int port)
 
     _initialize_request_module(&info);
     server_run(&info);
-
-    Py_RETURN_NONE;
 }
 
 void init_bjoern(void)
@@ -47,11 +44,12 @@ void init_bjoern(void)
 }
 
 int makeCSocket(char* sock, char* host, int port) {
+    //for sock, host use "" default, not NULL,
     int fd;
     struct sockaddr_in addr;
     int ok = 1;
 
-    if(sock != NULL && !strlen(sock)) {
+    if(!strlen(sock)) {
         //use host:port mode
         fd = socket(AF_INET, SOCK_STREAM, 0);
         if(fd < 0) {
@@ -93,21 +91,24 @@ int makeCSocket(char* sock, char* host, int port) {
     return fd;
 }
 
-PyObject*
-makeApp(char* wsgi) {
-    //wsgi: just like app:app, the first app means app.py or app module,
-    //the second app means a callable object, function, and so on.
+PyObject* makeApp(char* wsgi) {
+    //wsgi: just like module.module:callable
     //simplifily wsgi only contains one ':'
-    //first import app, and then get app.
+    //first import module, and then get the callable object.
     PyObject *pModule = NULL;
     PyObject *pApp = NULL;
-    char t1[256];
-    char t2[256];
+    char* t1 = malloc(sizeof(char*) * strlen(wsgi));
+    char* t2 = malloc(sizeof(char*) * strlen(wsgi));
     int i = 0;
     
     while(wsgi[i++] != '\0') {
         if(wsgi[i] == ':')
            break;
+    }
+   
+    if(i >= strlen(wsgi)) {
+        printf("Error format with wsgi: %s\n", wsgi);
+        goto error;
     }
 
     memcpy(t1, wsgi, i);
@@ -138,7 +139,7 @@ try:
     }
 
     if(!PyCallable_Check(pApp)) {
-        char* s;
+        char* s = "";
         sprintf(s, "%s.%s is not callable.", t1, t2);
         PyErr_SetString(PyExc_TypeError, s);
         PyErr_Print();
@@ -148,10 +149,14 @@ try:
 
 finally:
     Py_DECREF(pModule);
+    free(t1);
+    free(t2);
     return pApp;
 error:
     Py_XDECREF(pModule);
     Py_XDECREF(pApp);
+    free(t1);
+    free(t2);
     return NULL;
 }
 
@@ -159,7 +164,6 @@ int main(int argc, char** argv) {
     int fd = 0;
 
     PyObject *pApp = NULL;
-    PyObject *pReturn = NULL;
 
     if(argc < 2) {
         printf("Usage: %s wsgi\n", argv[0]);
@@ -184,7 +188,7 @@ try:
         goto error;
     Py_INCREF(pApp);
 
-    pReturn = run(pApp, fd, "127.0.0.1", 8000);
+    run(pApp, fd, "127.0.0.1", 8000);
     if(PyErr_Occurred())
         PyErr_Print();
 
@@ -194,13 +198,11 @@ try:
 
 finally:
     Py_DECREF(pApp);
-    Py_DECREF(pReturn);
     close(fd);
     return 0;
 
 error:
     Py_XDECREF(pApp);
-    Py_XDECREF(pReturn);
     close(fd);
     return -1;
 }
