@@ -1,6 +1,8 @@
 SOURCE_DIR	= bjoern
 BUILD_DIR	= build
 PYTHON	?= python
+LIBEV_INCLUDE ?= /usr/include
+LIBEV_LIB ?= /usr/lib/libev.a
 
 PYTHON_INCLUDE	= $(shell ${PYTHON}-config --includes)
 PYTHON_LDFLAGS	= $(shell ${PYTHON}-config --ldflags)
@@ -13,9 +15,9 @@ objects		= $(HTTP_PARSER_OBJ) \
 		  $(patsubst $(SOURCE_DIR)/%.c, $(BUILD_DIR)/%.o, \
 		             $(wildcard $(SOURCE_DIR)/*.c))
 
-CPPFLAGS	+= $(PYTHON_INCLUDE) -I . -I $(SOURCE_DIR) -I $(HTTP_PARSER_DIR)
+CPPFLAGS	+= $(PYTHON_INCLUDE) -I . -I $(SOURCE_DIR) -I $(HTTP_PARSER_DIR) -I$(LIBEV_INCLUDE)
 CFLAGS		+= $(FEATURES) -std=c99 -fno-strict-aliasing -fcommon -fPIC -Wall
-LDFLAGS		+= $(PYTHON_LDFLAGS) -l ev -shared -fcommon
+LDFLAGS		+= $(PYTHON_LDFLAGS) $(LIBEV_LIB) -fcommon
 
 ifneq ($(WANT_SENDFILE), no)
 FEATURES	+= -D WANT_SENDFILE
@@ -33,7 +35,7 @@ ifndef SIGNAL_CHECK_INTERVAL
 FEATURES	+= -D SIGNAL_CHECK_INTERVAL=0.1
 endif
 
-all: prepare-build $(objects) bjoern
+all: prepare-build $(objects) bjoernexe
 
 print-env:
 	@echo CFLAGS=$(CFLAGS)
@@ -47,14 +49,13 @@ opt: clean
 small: clean
 	CFLAGS='-Os' make
 
-bjoern:
-	@$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(objects) -o $(BUILD_DIR)/bjoern
-	@PYTHONPATH=$$PYTHONPATH:$(BUILD_DIR) ${PYTHON} -c "import bjoern"
+bjoernexe:
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(objects) -o $(BUILD_DIR)/bjoern
 
 again: clean all
 
 debug:
-	CFLAGS='-D DEBUG -g' make again
+	CFLAGS+='-D DEBUG -g' make
 
 $(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.c
 	@echo ' -> ' $(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
@@ -100,9 +101,6 @@ memwatch:
 	  'cat /proc/$$(pgrep -n ${PYTHON})/cmdline | tr "\0" " " | head -c -1; \
 	   echo; echo; \
 	   tail -n +25 /proc/$$(pgrep -n ${PYTHON})/smaps'
-
-upload:
-	${PYTHON} setup.py sdist upload
 
 $(HTTP_PARSER_OBJ):
 	$(MAKE) -C $(HTTP_PARSER_DIR) http_parser.o CFLAGS_DEBUG_EXTRA=-fPIC CFLAGS_FAST_EXTRA=-fPIC
