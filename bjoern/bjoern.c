@@ -186,7 +186,7 @@ try:
     pApp = makeApp(argv[1]);
     if(pApp == NULL)
         goto error;
-    Py_INCREF(pApp);
+    //Py_INCREF(pApp);
 
     run(pApp, fd, "127.0.0.1", 8000);
     if(PyErr_Occurred())
