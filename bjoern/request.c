@@ -75,8 +75,8 @@ void Request_parse(Request* request, const char* data, const size_t data_len)
     assert(data_len);
     size_t nparsed = http_parser_execute((http_parser*)&request->parser,
                                          &parser_settings, data, data_len);
-    //if(nparsed != data_len)
-        //request->state.error_code = HTTP_BAD_REQUEST;
+    if(nparsed != data_len)
+        request->state.error_code = HTTP_BAD_REQUEST;
 }
 
 #define REQUEST ((Request*)parser->data)
