@@ -120,7 +120,7 @@ bytestring:
     }
 
     /* keep-alive cruft */
-    if(http_should_keep_alive(&request->parser.parser)) {
+    if(llhttp_should_keep_alive(&request->parser.parser)) {
         if(request->state.response_length_unknown) {
             if(request->parser.parser.http_major > 0 && request->parser.parser.http_minor > 0) {
                 /* On HTTP 1.1, we can use Transfer-Encoding: chunked. */

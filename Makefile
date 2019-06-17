@@ -7,16 +7,16 @@ LIBEV_LIB ?= /usr/lib/libev.a
 PYTHON_INCLUDE	= $(shell ${PYTHON}-config --includes)
 PYTHON_LDFLAGS	= $(shell ${PYTHON}-config --ldflags)
 
-HTTP_PARSER_DIR	= http-parser
-HTTP_PARSER_OBJ = $(HTTP_PARSER_DIR)/http_parser.o
-HTTP_PARSER_SRC = $(HTTP_PARSER_DIR)/http_parser.c
+LLHTTP_DIR	= llhttp
+LLHTTP_OBJ = $(LLHTTP_DIR)/llhttp.o $(LLHTTP_DIR)/http.o $(LLHTTP_DIR)/api.o $(LLHTTP_DIR)/url_parser.o
+LLHTTP_SRC = $(LLHTTP_DIR)/llhttp.c $(LLHTTP_DIR)/http.c $(LLHTTP_DIR)/api.c $(LLHTTP_DIR)/url_parser.c
 
-objects		= $(HTTP_PARSER_OBJ) \
+objects		= $(LLHTTP_OBJ) \
 		  $(patsubst $(SOURCE_DIR)/%.c, $(BUILD_DIR)/%.o, \
 		             $(wildcard $(SOURCE_DIR)/*.c))
 
-CPPFLAGS	+= $(PYTHON_INCLUDE) -I . -I $(SOURCE_DIR) -I $(HTTP_PARSER_DIR) -I$(LIBEV_INCLUDE)
-CFLAGS		+= $(FEATURES) -std=c99 -fno-strict-aliasing -fcommon -fPIC -Wall
+CPPFLAGS	+= $(PYTHON_INCLUDE) -I . -I $(SOURCE_DIR) -I $(LLHTTP_DIR) -I$(LIBEV_INCLUDE)
+CFLAGS		+= $(FEATURES) -std=c99 -fno-strict-aliasing -fcommon  -Wall
 LDFLAGS		+= $(PYTHON_LDFLAGS) $(LIBEV_LIB) -fcommon
 
 ifneq ($(WANT_SENDFILE), no)
@@ -35,7 +35,7 @@ ifndef SIGNAL_CHECK_INTERVAL
 FEATURES	+= -D SIGNAL_CHECK_INTERVAL=0.1
 endif
 
-all: prepare-build $(objects) bjoernexe
+all: prepare-build $(LLHTTP_OBJ) $(objects) bjoernexe
 
 print-env:
 	@echo CFLAGS=$(CFLAGS)
@@ -49,8 +49,8 @@ opt: clean
 small: clean
 	CFLAGS='-Os' make
 
-bjoernexe:
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(objects) -o $(BUILD_DIR)/bjoern
+bjoernexe: $(objects)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ -o $(BUILD_DIR)/bjoern
 
 again: clean all
 
@@ -61,9 +61,8 @@ $(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.c
 	@echo ' -> ' $(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-# foo.o: shortcut to $(BUILD_DIR)/foo.o
-%.o: $(BUILD_DIR)/%.o
-
+$(LLHTTP_DIR)/%.o: $(LLHTTP_DIR)/%.c
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 prepare-build:
 	@mkdir -p $(BUILD_DIR)
@@ -71,36 +70,8 @@ prepare-build:
 clean:
 	@rm -rf $(BUILD_DIR)/*
 
-AB		= ab -c 100 -n 10000
-TEST_URL	= "http://127.0.0.1:8080/a/b/c?k=v&k2=v2"
-
-ab: ab1 ab2 ab3 ab4
-
-ab1:
-	$(AB) $(TEST_URL)
-ab2:
-	@echo 'asdfghjkl=asdfghjkl&qwerty=qwertyuiop' > /tmp/bjoern-post.tmp
-	$(AB) -p /tmp/bjoern-post.tmp $(TEST_URL)
-ab3:
-	$(AB) -k $(TEST_URL)
-ab4:
-	@echo 'asdfghjkl=asdfghjkl&qwerty=qwertyuiop' > /tmp/bjoern-post.tmp
-	$(AB) -k -p /tmp/bjoern-post.tmp $(TEST_URL)
-
-wget:
-	wget -O - -q -S $(TEST_URL)
-
-valgrind:
-	valgrind --leak-check=full --show-reachable=yes ${PYTHON} tests/empty.py
-
-callgrind:
-	valgrind --tool=callgrind ${PYTHON} tests/wsgitest-round-robin.py
-
 memwatch:
 	watch -n 0.5 \
 	  'cat /proc/$$(pgrep -n ${PYTHON})/cmdline | tr "\0" " " | head -c -1; \
 	   echo; echo; \
 	   tail -n +25 /proc/$$(pgrep -n ${PYTHON})/smaps'
-
-$(HTTP_PARSER_OBJ):
-	$(MAKE) -C $(HTTP_PARSER_DIR) http_parser.o CFLAGS_DEBUG_EXTRA=-fPIC CFLAGS_FAST_EXTRA=-fPIC

@@ -2,7 +2,8 @@
 #define __request_h__
 
 #include <ev.h>
-#include "http_parser.h"
+#include "llhttp.h"
+#include "url_parser.h"
 #include "common.h"
 #include "server.h"
 
@@ -19,7 +20,7 @@ typedef struct {
 } request_state;
 
 typedef struct {
-    http_parser parser;
+    llhttp_t parser;
     PyObject* field;
     int last_call_was_header_value;
     int invalid_header;

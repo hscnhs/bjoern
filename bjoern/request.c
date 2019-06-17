@@ -5,7 +5,7 @@
 #include "py2py3.h"
 
 static inline void PyDict_ReplaceKey(PyObject* dict, PyObject* k1, PyObject* k2);
-static http_parser_settings parser_settings;
+static llhttp_settings_t parser_settings;
 static PyObject* wsgi_base_dict = NULL;
 
 static PyObject* IO_module;
@@ -20,7 +20,7 @@ Request* Request_new(ServerInfo* server_info, int client_fd, const char* client_
     request->server_info = server_info;
     request->client_fd = client_fd;
     request->client_addr = _PEP3333_String_FromUTF8String(client_addr);
-    http_parser_init((http_parser*)&request->parser, HTTP_REQUEST);
+    llhttp_init((llhttp_t*)&request->parser, HTTP_REQUEST, &parser_settings);
     request->parser.parser.data = request;
     Request_reset(request);
     return request;
@@ -73,9 +73,9 @@ void Request_clean(Request* request)
 void Request_parse(Request* request, const char* data, const size_t data_len)
 {
     assert(data_len);
-    size_t nparsed = http_parser_execute((http_parser*)&request->parser,
-                                         &parser_settings, data, data_len);
-    if(nparsed != data_len)
+    llhttp_errno_t ok = llhttp_execute((llhttp_t*)&request->parser,
+                                         data, data_len);
+    if(ok != HPE_OK)
         request->state.error_code = HTTP_BAD_REQUEST;
 }
 
@@ -108,7 +108,7 @@ _set_or_append_header(PyObject* headers, PyObject* k, const char* val, size_t le
 }
 
 static int
-on_message_begin(http_parser* parser)
+on_message_begin(llhttp_t* parser)
 {
     assert(PARSER->field == NULL);
     REQUEST->headers = PyDict_New();
@@ -116,7 +116,7 @@ on_message_begin(http_parser* parser)
 }
 
 static int
-on_url(http_parser* parser, const char* url, size_t len) {
+on_url(llhttp_t* parser, const char* url, size_t len) { 
     struct http_parser_url u;
 
     int result = http_parser_parse_url(url, len, 0, &u);
@@ -129,6 +129,10 @@ on_url(http_parser* parser, const char* url, size_t len) {
         //printf("path: %s len: %hu\n", data1, u.field_data[UF_PATH].len);
         _set_or_append_header(REQUEST->headers, _PATH_INFO, data1, u.field_data[UF_PATH].len);  
     }
+    else {
+        fprintf(stderr, "\n\n*** failed to parser PATH in url %s ***\n\n", url);
+        return -1;
+    }
 
     if ((u.field_set & (1 << UF_QUERY))) {
         const char * data2 = url + u.field_data[UF_QUERY].off;
@@ -140,14 +144,14 @@ on_url(http_parser* parser, const char* url, size_t len) {
 }
 
 static int
-on_status(http_parser* parser, const char* status, size_t len) {
+on_status(llhttp_t* parser, const char* status, size_t len) {
     printf("status: %s len: %zu\n", status, len);
 
     return 0;
 }
 
 static int
-on_header_field(http_parser* parser, const char* field, size_t len)
+on_header_field(llhttp_t* parser, const char* field, size_t len)
 {
     if(PARSER->last_call_was_header_value) {
         /* We are starting a new header */
@@ -190,7 +194,7 @@ on_header_field(http_parser* parser, const char* field, size_t len)
 }
 
 static int
-on_header_value(http_parser* parser, const char* value, size_t len)
+on_header_value(llhttp_t* parser, const char* value, size_t len)
 {
     PARSER->last_call_was_header_value = true;
     if(!PARSER->invalid_header) {
@@ -201,7 +205,7 @@ on_header_value(http_parser* parser, const char* value, size_t len)
 }
 
 static int
-on_header_complete(http_parser* parser) {
+on_header_complete(llhttp_t* parser) {
 
     printf("header complete\n");
     printf("header size: %d\n", PyDict_GET_SIZE(REQUEST->headers));
@@ -209,7 +213,7 @@ on_header_complete(http_parser* parser) {
 }
 
 static int
-on_body(http_parser* parser, const char* data, const size_t len)
+on_body(llhttp_t* parser, const char* data, const size_t len)
 {
     PyObject* body;
 
@@ -234,7 +238,7 @@ on_body(http_parser* parser, const char* data, const size_t len)
 }
 
 static int
-on_message_complete(http_parser* parser)
+on_message_complete(llhttp_t* parser)
 {
     /* HTTP_CONTENT_{LENGTH,TYPE} -> CONTENT_{LENGTH,TYPE} */
     PyDict_ReplaceKey(REQUEST->headers, _HTTP_CONTENT_LENGTH, _CONTENT_LENGTH);
@@ -249,7 +253,7 @@ on_message_complete(http_parser* parser)
         _set_header(_REQUEST_METHOD, _GET);
     } else {
         _set_header_free_value(_REQUEST_METHOD,
-                               _PEP3333_String_FromUTF8String(http_method_str(parser->method))
+                               _PEP3333_String_FromUTF8String(llhttp_method_name(parser->method))
                               );
     }
 
@@ -286,7 +290,7 @@ PyDict_ReplaceKey(PyObject* dict, PyObject* old_key, PyObject* new_key)
 }
 
 
-static http_parser_settings
+static llhttp_settings_t
 parser_settings = {
     on_message_begin, on_url, on_status, on_header_field,
     on_header_value, on_header_complete, on_body, on_message_complete, NULL, NULL
