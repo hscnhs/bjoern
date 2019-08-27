@@ -1,6 +1,10 @@
+*.[oa]
+*.la
 *.pyc
 *.swp
 *~
+.vscode
+.clang-format
 build/
 dist/
 MANIFEST
