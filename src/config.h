@@ -55,4 +55,8 @@ typedef struct Argparse {
 
 extern void argparse(Argparse* ap, ArgumentOption* ao, int argc, char** argv);
 
+#ifdef __cplusplus
+}
+#endif
+
 #endif
